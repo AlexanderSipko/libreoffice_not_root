@@ -1,0 +1,1 @@
+aleksandrsipko@MacBook-Air-Aleksandr-2 pandoc % docker run --name convert --read-only -v /tmp:/.cache/dconf:rw -v /tmp:/libreoffice/share/truetype:rw -v /tmp:/spool/libreoffice/uno_packages/cache:rw -p 80:80 -t convert:v.2
