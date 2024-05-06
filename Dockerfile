@@ -1,58 +1,49 @@
-FROM ubuntu:20.04
+# Используем базовый образ Python 3.10
+FROM python:3.10
 
-ENV DEBIAN_FRONTEND noninteractive
+# Устанавливаем необходимые зависимости
+RUN pip install --no-cache-dir fastapi uvicorn
 
-# TMPFS
-# --tmpfs /root/.cache/dconf:/root/.cache/dconf:rw --tmpfs /libreoffice/share/truetype:/libreoffice/share/truetype:rw -tmpfs /var/cache/fontconfig:/var/cache/fontconfig:rw --tmpfs /spool/libreoffice/uno_packages/cache:/spool/libreoffice/uno_packages/cache:rw
+# Устанавливаем unoconv и LibreOffice
+RUN apt-get update && apt-get install -y unoconv libreoffice
 
+# Добавляем пользователя appuser, если он еще не существует
+RUN if ! id -u appuser > /dev/null 2>&1; then \
+        groupadd -r appuser && useradd -r -g appuser appuser; \
+    fi
 
-# RUN apt-get update && apt-get -y upgrade && \
-#     apt-get -y install python3.10 && \
-#     apt update && apt install python3-pip -y
+# Копируем код приложения внутрь контейнера
+COPY . /app
 
-# Method1 - installing LibreOffice and java
-RUN apt-get update && apt-get -y upgrade
-RUN apt-get --no-install-recommends install libreoffice -y
-RUN apt-get install -y openjdk-11-jdk
-# RUN apt-get install -y libreoffice-java-common
-
-# Method2 - additionally installing unoconv
-RUN apt-get install unoconv
-RUN apt-get install python3
-RUN apt-get install -y python3-pip
-
-COPY ./app/requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt
-RUN pip install uvicorn
-
-RUN mkdir -p /home/appuser/.cache/dconf
-RUN mkdir -p /.cache/dconf
-RUN mkdir -p /libreoffice/share/truetype
-RUN mkdir -p /spool/libreoffice/uno_packages/cache
-RUN mkdir -p /app/in
-
+# Устанавливаем рабочую директорию
 WORKDIR /app
 
-COPY ./app .
+# # Создаем директории, если они не существуют
+# RUN mkdir -p /root/.config && \
+RUN mkdir -p /app/output_files && \
+    mkdir -p /tmp  && \
+    mkdir -p /var && \
+    mkdir -p /home/appuser/.config && \
+    mkdir -p /home/appuser/.cache/dconf
+    # mkdir -p /root/.cache/dconf && \
+    
+# # Устанавливаем владельца и разрешения для директории приложения
+# RUN chown -R appuser:appuser /app
 
-RUN groupadd -g 20023 appuser && \
-    useradd -ms /bin/bash -r -u 20023 -g appuser appuser && \
-    chown -R appuser:appuser /app && \
-    chown -R appuser:appuser /.cache/dconf && \
-    chown -R appuser:appuser /home/appuser/.cache/dconf && \
-    chown -R appuser:appuser /app/in && \
-    chown -R appuser:appuser /libreoffice/share/truetype && \
-    chown -R appuser:appuser /spool/libreoffice/uno_packages/cache
+# # Устанавливаем владельца и разрешения для примонтированных томов
+# RUN chown -R appuser:appuser /root/.config && \
+RUN chown -R appuser:appuser /app/output_files && \
+    chown -R appuser:appuser /tmp && \
+    chown -R appuser:appuser /var && \
+    chown -R appuser:appuser /home/appuser/.config && \
+    chown -R appuser:appuser /home/appuser/.cache/dconf
+    # chown -R appuser:appuser /root/.cache/dconf && \
 
+# # Устанавливаем пользователя по умолчанию
+USER appuser:appuser
 
-# RUN chmod -R 755 /app
-# RUN chmod -R 755 /app/in
-# RUN chmod -R 755 /home/appuser/.cache/dconf
-# RUN chmod -R 755 /.cache/dconf
-# RUN chmod -R 755 /libreoffice/share/truetype
-# RUN chmod -R 755 /spool/libreoffice/uno_packages/cache
+# Экспонируем порт, на котором будет работать приложение
+EXPOSE 80
 
-USER appuser
-
+# Запускаем сервер с помощью uvicorn
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
-
